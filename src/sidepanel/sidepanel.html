@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>生词本 · AI 双语翻译</title>
+    <link rel="stylesheet" href="../ui/base.css" />
+    <style>
+      body {
+        margin: 0;
+        background: var(--bg);
+      }
+      .sp-head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 12px 14px 10px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+      .sp-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .sp-title h1 {
+        font-size: 15px;
+        margin: 0;
+      }
+      .sp-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .sp-tab {
+        flex: 1;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--text);
+        font: 500 13px/1.4 inherit;
+        cursor: pointer;
+      }
+      .sp-tab[aria-selected='true'] {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+      }
+      .sp-tools {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sp-tools input[type='search'] {
+        flex: 1;
+        min-width: 0;
+      }
+      .sp-body {
+        padding: 10px 14px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .sp-item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+        padding: 10px 12px;
+      }
+      .sp-item-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .sp-item-text {
+        font-weight: 600;
+        word-break: break-word;
+      }
+      .sp-item-pos {
+        font-size: 12px;
+        color: var(--text-3);
+      }
+      .sp-item-trans {
+        margin-top: 4px;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.55;
+        word-break: break-word;
+      }
+      .sp-item-meta {
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-3);
+      }
+      .sp-item-meta .btn {
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      .sp-empty {
+        padding: 32px 12px;
+        text-align: center;
+        color: var(--text-3);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .sp-footer {
+        padding: 10px 14px 18px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sp-head">
+      <div class="sp-title">
+        <img src="../icons/icon32.png" alt="" style="width: 22px; height: 22px; border-radius: 5px" />
+        <h1>学习面板</h1>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="btn-settings" type="button">设置</button>
+      </div>
+      <div class="sp-tabs" role="tablist">
+        <button class="sp-tab" id="tab-wordbook" role="tab" aria-selected="true" type="button">生词本</button>
+        <button class="sp-tab" id="tab-history" role="tab" aria-selected="false" type="button">查询历史</button>
+      </div>
+      <div class="sp-tools">
+        <input type="search" id="filter" placeholder="筛选生词或译文" />
+        <button class="btn small" id="btn-refresh" type="button">刷新</button>
+        <button class="btn small ghost" id="btn-export" type="button">导出</button>
+      </div>
+    </div>
+
+    <div class="sp-body" id="list"></div>
+
+    <div class="sp-footer">
+      <button class="btn small ghost block" id="btn-clear" type="button">清空当前列表</button>
+    </div>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

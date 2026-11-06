@@ -1,0 +1,20 @@
+# 打包产物
+dist/
+*.zip
+
+# 测试/临时输出
+e2e-out.txt
+*.log
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 依赖（本项目不需要，留作保险）
+node_modules/

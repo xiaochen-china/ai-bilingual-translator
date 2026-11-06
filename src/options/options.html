@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>设置 · AI 双语翻译</title>
+    <link rel="stylesheet" href="../ui/base.css" />
+  </head>
+  <body>
+    <div class="wrap stack">
+      <header class="row" style="margin-bottom: 4px">
+        <img src="../icons/icon48.png" alt="" style="width: 36px; height: 36px; border-radius: 8px" />
+        <div>
+          <h1>AI 双语翻译 · 设置</h1>
+          <div class="hint">网页双语对照 · 划词词典 · 视频双语字幕</div>
+        </div>
+        <span class="spacer"></span>
+        <span class="badge" id="version-badge">v1.0.0</span>
+      </header>
+
+      <!-- ============================ 引擎 ============================ -->
+      <section class="card" id="section-engine">
+        <h2>翻译引擎</h2>
+        <p class="desc">
+          默认使用 Google 免费接口（无需密钥，适合快速上手）。需要更好的长句质量或术语一致性时，请配置 AI 引擎。
+          密钥默认只保存在<b>当前浏览器会话</b>，浏览器关闭后自动清除。
+        </p>
+
+        <div class="field">
+          <label for="engine-picker">要配置的引擎</label>
+          <select id="engine-picker"></select>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Google -->
+        <div data-engine-panel="google-free">
+          <div class="field">
+            <label>接口地址</label>
+            <input type="url" data-engine-setting="google-free.endpoint" placeholder="https://translate.googleapis.com/translate_a/single" />
+            <div class="hint">公共免费接口，无需 API Key；高频调用可能被限流，此时请切换到其他引擎。</div>
+          </div>
+        </div>
+
+        <!-- DeepL -->
+        <div data-engine-panel="deepl" hidden>
+          <div class="grid two">
+            <div class="field">
+              <label>接口类型</label>
+              <select data-engine-setting="deepl.endpoint">
+                <option value="free">DeepL Free（api-free.deepl.com）</option>
+                <option value="pro">DeepL Pro（api.deepl.com）</option>
+              </select>
+              <div class="hint">Free 版密钥以 <span class="mono">:fx</span> 结尾。</div>
+            </div>
+            <div class="field">
+              <label>语气（formality）</label>
+              <select data-engine-setting="deepl.formality">
+                <option value="default">默认</option>
+                <option value="more">更正式</option>
+                <option value="less">更口语</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- OpenAI 兼容 -->
+        <div data-engine-panel="openai-compatible" hidden>
+          <div class="grid two">
+            <div class="field">
+              <label>接口地址（Base URL）</label>
+              <input type="url" data-engine-setting="openai-compatible.baseUrl" placeholder="https://api.openai.com/v1" />
+              <div class="hint">任何兼容 OpenAI Chat Completions 的服务都可以，例如自建代理。</div>
+            </div>
+            <div class="field">
+              <label>模型</label>
+              <input type="text" data-engine-setting="openai-compatible.model" placeholder="gpt-4o-mini" />
+            </div>
+          </div>
+          <div class="grid two">
+            <div class="field">
+              <label>温度（0–2）</label>
+              <input type="number" min="0" max="2" step="0.1" data-engine-setting="openai-compatible.temperature" />
+              <div class="hint">翻译建议 0–0.3，越接近 0 越稳定。</div>
+            </div>
+            <div class="field">
+              <label>单次最大输出 tokens</label>
+              <input type="number" min="256" max="8192" step="128" data-engine-setting="openai-compatible.maxTokens" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 阿里百炼 -->
+        <div data-engine-panel="bailian" hidden>
+          <div class="grid two">
+            <div class="field">
+              <label>接口地址（Base URL）</label>
+              <input type="url" data-engine-setting="bailian.baseUrl" />
+            </div>
+            <div class="field">
+              <label>模型</label>
+              <input type="text" data-engine-setting="bailian.model" placeholder="qwen-plus" />
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="field">
+          <label for="api-key">API Key</label>
+          <div class="row">
+            <input type="password" id="api-key" autocomplete="off" spellcheck="false" placeholder="粘贴该引擎的 API Key" />
+            <button class="btn small" id="btn-toggle-key" type="button">显示</button>
+          </div>
+          <div class="row" style="margin-top: 6px">
+            <span class="badge" id="key-status">未设置</span>
+            <span class="hint" id="key-source"></span>
+            <span class="spacer"></span>
+            <label class="row" style="gap: 6px; font-weight: 400">
+              <span class="switch"><input type="checkbox" id="persist-key" /><span></span></label>
+              <span>持久化保存密钥</span>
+            </label>
+          </div>
+          <div class="hint" style="color: var(--warn)">
+            持久化后密钥会写入本地存储，任何能访问该浏览器配置文件的人都能读取。仅在个人设备上使用。
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 10px">
+          <button class="btn primary" id="btn-save-engine" type="button">保存引擎配置</button>
+          <button class="btn" id="btn-test-engine" type="button">测试连接</button>
+          <button class="btn ghost" id="btn-clear-key" type="button">清除密钥</button>
+          <span class="spacer"></span>
+          <span class="hint" id="engine-test-result"></span>
+        </div>
+      </section>
+
+      <!-- ============================ 翻译行为 ============================ -->
+      <section class="card">
+        <h2>翻译行为</h2>
+        <div class="grid three">
+          <div class="field">
+            <label>默认引擎</label>
+            <select id="default-engine"></select>
+          </div>
+          <div class="field">
+            <label>源语言</label>
+            <select id="source-lang"></select>
+          </div>
+          <div class="field">
+            <label>目标语言</label>
+            <select id="target-lang"></select>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>翻译措辞</label>
+            <select id="profile-select"></select>
+            <div class="hint">技术文档建议选「技术翻译」；AI 引擎会按其规则润色，普通引擎只影响术语。</div>
+          </div>
+          <div class="field">
+            <label>打开页面时自动翻译</label>
+            <label class="row" style="gap: 8px; font-weight: 400">
+              <span class="switch"><input type="checkbox" id="auto-translate" /><span></span></span>
+              <span>对所有站点生效（可用站点规则覆盖）</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>自定义翻译规则（仅在「自定义规则」模式下生效）</label>
+          <textarea id="custom-prompt" placeholder="例如：保留专业术语不译；代码标识符保持原样；使用简洁的书面语。"></textarea>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3 style="margin-bottom: 8px">术语表</h3>
+        <p class="hint" style="margin-bottom: 8px">术语表会强制把左侧英文映射为右侧中文（对所有引擎生效）。</p>
+        <table class="table" id="glossary-table">
+          <thead>
+            <tr>
+              <th style="width: 34%">英文</th>
+              <th style="width: 34%">中文</th>
+              <th>备注</th>
+              <th style="width: 48px"></th>
+            </tr>
+          </thead>
+          <tbody id="glossary-body"></tbody>
+        </table>
+        <div class="row" style="margin-top: 8px">
+          <button class="btn small" id="btn-add-glossary" type="button">＋ 添加术语</button>
+          <button class="btn small primary" id="btn-save-glossary" type="button">保存术语表</button>
+          <span class="spacer"></span>
+          <button class="btn small ghost" id="btn-export-glossary" type="button">导出 JSON</button>
+          <button class="btn small ghost" id="btn-import-glossary" type="button">导入 JSON</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3 style="margin-bottom: 8px">站点规则</h3>
+        <p class="hint" style="margin-bottom: 8px">
+          auto = 打开页面就自动翻译；ask = 顶部询问一次；never = 永不自动翻译（仍可手动翻译）。
+        </p>
+        <table class="table" id="site-table">
+          <thead>
+            <tr>
+              <th style="width: 48%">域名</th>
+              <th>规则</th>
+              <th style="width: 48px"></th>
+            </tr>
+          </thead>
+          <tbody id="site-body"></tbody>
+        </table>
+        <div class="row" style="margin-top: 8px">
+          <input type="text" id="site-host" placeholder="example.com" style="max-width: 220px" />
+          <select id="site-rule" style="max-width: 160px">
+            <option value="auto">自动翻译</option>
+            <option value="ask">每次询问</option>
+            <option value="never">永不翻译</option>
+          </select>
+          <button class="btn small" id="btn-add-site" type="button">添加</button>
+        </div>
+      </section>
+
+      <!-- ============================ 显示样式 ============================ -->
+      <section class="card">
+        <h2>译文样式</h2>
+        <div class="grid two">
+          <div class="grid three">
+            <div class="field">
+              <label>字号倍数</label>
+              <input type="range" min="0.7" max="1.4" step="0.05" data-setting="style.fontScale" />
+              <div class="hint" id="font-scale-label">1.00×</div>
+            </div>
+            <div class="field">
+              <label>字重</label>
+              <select data-setting="style.fontWeight">
+                <option value="400">常规</option>
+                <option value="500">中等</option>
+                <option value="600">加粗</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>行高</label>
+              <input type="number" min="1.2" max="2.2" step="0.1" data-setting="style.lineHeight" />
+            </div>
+            <div class="field">
+              <label>与原文间距（px）</label>
+              <input type="number" min="0" max="24" step="1" data-setting="style.paragraphGap" />
+            </div>
+            <div class="field">
+              <label>与下段间距（px）</label>
+              <input type="number" min="0" max="32" step="1" data-setting="style.marginBottom" />
+            </div>
+            <div class="field">
+              <label>浅色主题颜色</label>
+              <input type="color" data-setting="style.color" />
+            </div>
+            <div class="field">
+              <label>深色主题颜色</label>
+              <input type="color" data-setting="style.darkColor" />
+            </div>
+            <div class="field">
+              <label>左侧竖线</label>
+              <label class="switch"><input type="checkbox" data-setting="style.showDivider" /><span></span></label>
+            </div>
+            <div class="field">
+              <label>代码等宽标注</label>
+              <label class="switch"><input type="checkbox" data-setting="style.inlineCode" /><span></span></label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>预览</label>
+            <div id="style-preview" style="padding: 12px; border: 1px dashed var(--border); border-radius: 8px; background: var(--panel-2)">
+              <p style="margin: 0 0 6px 0; color: var(--text)">
+                Registers are the fastest storage in a CPU, and a pointer is simply a memory address.
+              </p>
+              <div id="preview-trans" style="color: #1a73e8">
+                寄存器是 CPU 中最快的存储，而指针本质上就是一个内存地址。
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ 网页翻译参数 ============================ -->
+      <section class="card">
+        <h2>网页翻译参数</h2>
+        <div class="grid three">
+          <div class="field">
+            <label>单页最多文本块</label>
+            <input type="number" min="50" max="3000" step="50" data-setting="page.maxBlocks" />
+            <div class="hint">越大越完整，但请求次数和耗时也越多。</div>
+          </div>
+          <div class="field">
+            <label>最小可翻译长度</label>
+            <input type="number" min="1" max="40" data-setting="page.minBlockLength" />
+            <div class="hint">少于该长度的文本块会被跳过。</div>
+          </div>
+          <div class="field">
+            <label>每批文本数</label>
+            <input type="number" min="1" max="20" data-setting="page.batchSize" />
+          </div>
+          <div class="field">
+            <label>并发请求数</label>
+            <input type="number" min="1" max="4" data-setting="page.concurrency" />
+            <div class="hint">过高会更容易触发接口限流。</div>
+          </div>
+          <div class="field">
+            <label>视口懒加载</label>
+            <label class="switch"><input type="checkbox" data-setting="page.lazyLoad" /><span></span></label>
+            <div class="hint">只翻译滚动到附近的段落，更快更省额度。</div>
+          </div>
+          <div class="field">
+            <label>跟随动态内容</label>
+            <label class="switch"><input type="checkbox" data-setting="page.observeDynamic" /><span></span></label>
+            <div class="hint">SPA 页面新加载的内容也会自动翻译。</div>
+          </div>
+          <div class="field">
+            <label>翻译页面标题</label>
+            <label class="switch"><input type="checkbox" data-setting="page.translateTitle" /><span></span></label>
+          </div>
+          <div class="field">
+            <label>翻译缓存</label>
+            <label class="switch"><input type="checkbox" data-setting="cache.enabled" /><span></span></label>
+            <div class="hint">相同文本只请求一次。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ 划词 ============================ -->
+      <section class="card">
+        <h2>划词翻译</h2>
+        <div class="grid three">
+          <div class="field">
+            <label>启用</label>
+            <label class="switch"><input type="checkbox" data-setting="lookup.enabled" /><span></span></label>
+          </div>
+          <div class="field">
+            <label>选中后自动弹出</label>
+            <label class="switch"><input type="checkbox" data-setting="lookup.autoPopup" /><span></span></label>
+            <div class="hint">关闭后可用 <span class="kbd">Alt+Shift+D</span> 手动查询。</div>
+          </div>
+          <div class="field">
+            <label>最大查询长度</label>
+            <input type="number" min="20" max="2000" step="10" data-setting="lookup.maxLength" />
+          </div>
+        </div>
+        <div class="field">
+          <label>划词使用的引擎</label>
+          <select id="lookup-engine"></select>
+          <div class="hint">留空表示跟随默认引擎。AI 引擎可额外返回词性、释义和例句。</div>
+        </div>
+      </section>
+
+      <!-- ============================ 字幕 ============================ -->
+      <section class="card">
+        <h2>视频双语字幕（YouTube / Bilibili）</h2>
+        <div class="grid three">
+          <div class="field">
+            <label>启用</label>
+            <label class="switch"><input type="checkbox" data-setting="subtitles.enabled" /><span></span></label>
+          </div>
+          <div class="field">
+            <label>显示原文</label>
+            <label class="switch"><input type="checkbox" data-setting="subtitles.showSource" /><span></span></label>
+          </div>
+          <div class="field">
+            <label>隐藏站点原生字幕</label>
+            <label class="switch"><input type="checkbox" data-setting="subtitles.hideNative" /><span></span></label>
+          </div>
+          <div class="field">
+            <label>字号倍数</label>
+            <input type="range" min="0.6" max="1.8" step="0.05" data-setting="subtitles.fontScale" />
+          </div>
+          <div class="field">
+            <label>距底部（%）</label>
+            <input type="number" min="0" max="40" data-setting="subtitles.position" />
+          </div>
+          <div class="field">
+            <label>最大宽度（%）</label>
+            <input type="number" min="40" max="100" data-setting="subtitles.maxWidth" />
+          </div>
+          <div class="field">
+            <label>原文颜色</label>
+            <input type="color" data-setting="subtitles.color" />
+          </div>
+          <div class="field">
+            <label>译文颜色</label>
+            <input type="color" data-setting="subtitles.translatedColor" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ 生词本 ============================ -->
+      <section class="card">
+        <h2>生词本</h2>
+        <p class="hint" style="margin-bottom: 8px">
+          划词查询时点击「＋ 生词本」即可收藏。也可以随时导出为 JSON 备份，或从备份文件导入。
+        </p>
+        <div class="row" style="margin-bottom: 8px">
+          <input type="search" id="wordbook-filter" placeholder="筛选单词或译文" style="max-width: 240px" />
+          <span class="spacer"></span>
+          <span class="badge" id="wordbook-count">0 条</span>
+          <button class="btn small" id="btn-wordbook-refresh" type="button">刷新</button>
+          <button class="btn small ghost" id="btn-wordbook-export" type="button">导出</button>
+          <button class="btn small ghost" id="btn-wordbook-import" type="button">导入</button>
+          <button class="btn small" id="btn-open-sidepanel" type="button">侧边栏打开</button>
+        </div>
+        <table class="table" id="wordbook-table">
+          <thead>
+            <tr>
+              <th style="width: 26%">单词 / 句子</th>
+              <th style="width: 34%">译文</th>
+              <th style="width: 14%">词性</th>
+              <th style="width: 18%">时间</th>
+              <th style="width: 48px"></th>
+            </tr>
+          </thead>
+          <tbody id="wordbook-body"></tbody>
+        </table>
+        <div class="row" style="margin-top: 8px">
+          <button class="btn small ghost" id="btn-wordbook-clear" type="button">清空生词本</button>
+        </div>
+      </section>
+
+      <!-- ============================ 数据 ============================ -->
+      <section class="card">
+        <h2>缓存与数据</h2>
+        <div class="row">
+          <span class="badge" id="cache-badge">统计中…</span>
+          <button class="btn small" id="btn-refresh-cache" type="button">刷新统计</button>
+          <button class="btn small" id="btn-clear-cache" type="button">清空翻译缓存</button>
+          <span class="spacer"></span>
+          <button class="btn small danger" id="btn-clear-all" type="button">清除全部本地数据</button>
+        </div>
+        <div class="hint" style="margin-top: 8px">
+          清除全部数据会删除设置、密钥、生词本与历史记录，且不可恢复。
+        </div>
+      </section>
+
+      <!-- ============================ 关于 ============================ -->
+      <section class="card">
+        <h2>快捷键与说明</h2>
+        <table class="table">
+          <tbody>
+            <tr><td style="width: 180px"><span class="kbd">Alt+Shift+T</span></td><td>翻译当前页面</td></tr>
+            <tr><td><span class="kbd">Alt+Shift+M</span></td><td>循环切换显示模式</td></tr>
+            <tr><td><span class="kbd">Alt+Shift+D</span></td><td>查询选中的文字</td></tr>
+          </tbody>
+        </table>
+        <div class="divider"></div>
+        <p class="hint">
+          使用 AI 引擎时，你选中的文字或页面段落会发送到所配置的第三方接口。免费 Google 接口同样会把文本发送到 Google。
+          扩展本身不收集、不上传任何数据，所有设置与生词本都保存在本地。
+        </p>
+        <p class="hint" style="margin-top: 8px">
+          若某站点翻译异常，可在浏览器扩展页面按 F12 查看控制台；扩展日志以 <span class="mono">[ABT]</span> 开头。
+        </p>
+      </section>
+
+      <div style="height: 20px"></div>
+    </div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

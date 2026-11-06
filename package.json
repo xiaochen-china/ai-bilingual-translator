@@ -1,0 +1,25 @@
+{
+  "name": "ai-bilingual-translator",
+  "version": "2.1.0",
+  "private": true,
+  "description": "AI 双语翻译 —— 英文网页 / YouTube 字幕的英中对照翻译浏览器扩展（Edge / Chrome，MV3）",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:e2e": "node tools/e2e-smoke.mjs",
+    "test:all": "node --test && node tools/validate.js && node tools/e2e-smoke.mjs",
+    "validate": "node tools/validate.js",
+    "icons": "python tools/generate_icons.py",
+    "build": "python tools/build_zip.py"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "browser-extension",
+    "translation",
+    "manifest-v3",
+    "youtube-subtitles"
+  ],
+  "license": "MIT"
+}

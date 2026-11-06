@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 双语翻译</title>
+    <link rel="stylesheet" href="../ui/base.css" />
+  </head>
+  <body class="popup">
+    <div class="popup-head">
+      <img src="../icons/icon32.png" alt="" />
+      <div class="spacer">
+        <div class="title">AI 双语翻译</div>
+        <div class="ver" id="version">v1.0.0</div>
+      </div>
+      <button class="btn ghost small" id="btn-options" type="button">设置</button>
+    </div>
+
+    <div class="popup-body">
+      <div class="stat-line">
+        <span id="page-state">检测页面…</span>
+        <span class="spacer"></span>
+        <span id="stat-count"></span>
+      </div>
+      <div class="progress" id="progress-wrap" hidden><i id="progress"></i></div>
+
+      <button class="btn primary block" id="btn-translate" type="button">翻译本页</button>
+
+      <div class="field">
+        <label>显示模式</label>
+        <div class="seg" id="modes"></div>
+      </div>
+
+      <div class="field">
+        <label for="engine">翻译引擎</label>
+        <select id="engine"></select>
+        <div class="hint" id="engine-hint"></div>
+      </div>
+
+      <div class="row">
+        <span>划词翻译</span>
+        <span class="spacer"></span>
+        <label class="switch"><input type="checkbox" id="lookup-toggle" /><span></span></label>
+      </div>
+
+      <div class="row" id="row-subtitle" hidden>
+        <span>视频双语字幕</span>
+        <span class="spacer"></span>
+        <button class="btn small" id="btn-subtitle" type="button">开启字幕</button>
+      </div>
+
+      <div class="row">
+        <button class="btn small" id="btn-wordbook" type="button">生词本</button>
+        <button class="btn small" id="btn-history" type="button">历史</button>
+        <span class="spacer"></span>
+        <button class="btn small ghost" id="btn-subtitle-panel" type="button" hidden>字幕面板</button>
+      </div>
+
+      <div class="hint" id="footer-hint"></div>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
