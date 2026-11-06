@@ -38,6 +38,7 @@
     statusEl: null,
     currentText: '',
     lastVideoId: '',
+    renderText: '',
     warmup: false,
   };
 
@@ -240,14 +241,33 @@
     }
   }
 
+  /**
+   * 每帧同步字幕层：句子变了就换行，句子没变但译文刚到也要刷上去
+   * （否则译文要等到下一句才开始显示，看起来像「一直省略号」）。
+   */
+  function syncLayer() {
+    if (state.mode !== 'timedtext' || !state.video) return -1;
+    const index = findCueIndex(state.video.currentTime);
+    const cue = index >= 0 ? state.cues[index] : null;
+    const text = cue?.text || '';
+    if (text !== state.renderText) {
+      state.renderText = text;
+      renderCue(cue);
+      return index;
+    }
+    if (!cue || !state.transEl) return index;
+    const translated = state.translations.get(cue.text);
+    if (translated && state.transEl.textContent !== translated) state.transEl.textContent = translated;
+    return index;
+  }
+
   function tick() {
     if (!state.running || !state.video) return;
     const video = state.video;
     if (!video.paused && !video.ended) {
-      const index = findCueIndex(video.currentTime);
+      const index = syncLayer();
       if (index !== state.lastIndex) {
         state.lastIndex = index;
-        renderCue(index >= 0 ? state.cues[index] : null);
         // 预取后续 3 句
         for (let offset = 0; offset < 3; offset += 1) {
           const next = state.cues[index + offset];
@@ -256,9 +276,10 @@
       }
       state.rafId = requestAnimationFrame(tick);
     } else {
-      // 暂停时降低轮询频率
+      // 暂停时降低轮询频率（但仍要同步，方便用户暂停后看到译文补上）
       state.rafId = setTimeout(() => {
         state.rafId = null;
+        syncLayer();
         tick();
       }, 320);
     }
@@ -289,6 +310,7 @@
     }
     state.mode = 'none';
     state.lastFailure = response?.reason || 'UNKNOWN';
+    state.lastFailureStatus = response?.status || 0;
     NS.log('timedtext 字幕获取失败', response);
     return false;
   }
@@ -314,31 +336,54 @@
     return '';
   }
 
-  function startDomFallback() {
+  /**
+   * 把后台返回的失败原因翻译成用户看得懂的一句话。
+   * 不夸大、不隐瞒：拿不到就是拿不到，绝不假装有字幕。
+   */
+  function describeFailure(reason, status) {
+    switch (reason) {
+      case 'EMPTY':
+        return '字幕接口返回空内容（YouTube 现要求请求携带 PoToken，第三方读取常被限流）';
+      case 'HTTP':
+        return `字幕接口返回 HTTP ${status || '错误'}`;
+      case 'NETWORK':
+        return '字幕接口网络不可达';
+      case 'BAD_URL':
+        return '字幕轨道地址无效（可能已过期）';
+      case 'NO_URL':
+      case 'NO_TRACKS':
+        return '该视频没有可读取的字幕轨道';
+      case 'NOT_SUPPORTED':
+        return '当前站点不支持';
+      default:
+        return `字幕接口不可用（${reason || '未知原因'}）`;
+    }
+  }
+
+  function startDomFallback(reason = state.lastFailure, status = 0) {
     state.mode = 'dom';
     ensureLayer();
-    setStatus('已回退到站点原生字幕识别（可靠性低于字幕 API）');
+    setStatus(`${describeFailure(reason, status)}，已改用站点原生字幕识别（可靠性低于字幕 API）`);
     state.domTimer = setInterval(async () => {
       if (!state.running) return;
       const text = readNativeSubtitle();
-      if (!text || text === state.domLastText) return;
-      state.domLastText = text;
-      state.currentText = text;
-      showLayer(true);
-      if (state.sourceEl) state.sourceEl.textContent = text;
-      if (state.translations.has(text)) {
-        if (state.transEl) state.transEl.textContent = state.translations.get(text);
-        return;
+      if (!text) return;
+      if (text !== state.domLastText) {
+        state.domLastText = text;
+        state.currentText = text;
+        showLayer(true);
+        if (state.sourceEl) state.sourceEl.textContent = text;
+        enqueueTranslation(text);
       }
-      if (state.transEl) state.transEl.textContent = '…';
-      enqueueTranslation(text);
-      // 翻译完成后刷新
-      const check = setInterval(() => {
-        clearInterval(check);
-        if (state.running && state.translations.has(text) && state.transEl) {
-          state.transEl.textContent = state.translations.get(text);
+      // 同一句可能停留好几秒：译文一到就替换「…」，不必等下一句
+      if (state.transEl) {
+        const translated = state.translations.get(text);
+        if (translated) {
+          if (state.transEl.textContent !== translated) state.transEl.textContent = translated;
+        } else if (state.transEl.textContent !== '…') {
+          state.transEl.textContent = '…';
         }
-      }, 400);
+      }
     }, 400);
   }
 
@@ -392,6 +437,8 @@
     state.translations.clear();
     state.queue.length = 0;
     state.lastIndex = -1;
+    state.domLastText = '';
+    state.renderText = '';
     state.lastVideoId = currentVideoId();
 
     ensureLayer();
@@ -401,9 +448,9 @@
     const ok = await loadTimedtextCues();
     if (!ok) {
       if (!silent) {
-        NS.toast('未能通过字幕接口获取字幕，正在尝试识别站点原生字幕。', { duration: 3200 });
+        NS.toast(`${describeFailure(state.lastFailure, state.lastFailureStatus)}，正在尝试识别站点原生字幕。`, { duration: 4000 });
       }
-      startDomFallback();
+      startDomFallback(state.lastFailure, state.lastFailureStatus);
     } else {
       setStatus('');
       // 预热前 20 句，减少开始时的等待
@@ -434,10 +481,11 @@
     state.queue.length = 0;
     state.lastIndex = -1;
     state.domLastText = '';
+    state.renderText = '';
     clearInterval(state.domTimer);
     state.domTimer = null;
     const ok = await loadTimedtextCues();
-    if (!ok) startDomFallback();
+    if (!ok) startDomFallback(state.lastFailure, state.lastFailureStatus);
     else state.cues.slice(0, 20).forEach((cue) => enqueueTranslation(cue.text));
   }
 
@@ -458,6 +506,8 @@
     state.mode = 'none';
     state.cues = [];
     state.lastIndex = -1;
+    state.renderText = '';
+    state.domLastText = '';
     return { ok: true };
   }
 

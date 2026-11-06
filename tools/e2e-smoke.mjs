@@ -165,6 +165,12 @@ async function waitForDebugger() {
 }
 
 function pickBrowser() {
+  // 允许用环境变量指定浏览器（例如 Chrome for Testing，它的 --load-extension 仍可用）
+  const override = process.env.ABT_BROWSER;
+  if (override) {
+    if (!existsSync(override)) throw new Error(`ABT_BROWSER 指向的文件不存在：${override}`);
+    return override;
+  }
   for (const candidate of CANDIDATES) if (existsSync(candidate)) return candidate;
   throw new Error('未找到 Chrome / Edge 可执行文件');
 }
@@ -431,19 +437,41 @@ async function main() {
     });
 
     // 5. 页面 ↔ 内容脚本 ↔ 后台 双向通道
+    //    注意：夹具页可能在扩展装好之前就已打开（Chrome 里尤其常见），那时内容脚本不会注入。
+    //    所以第二轮先 reload 一次普通网页，让注入发生，再试。
     const contentProbe = await evaluate(
       cdp,
       sessionId,
       `(async () => {
+        const probe = async () => {
+          const tabs = await chrome.tabs.query({});
+          for (const tab of tabs) {
+            if (!tab.id || String(tab.url || '').startsWith('chrome-extension://')) continue;
+            try {
+              const state = await chrome.tabs.sendMessage(tab.id, { v: 1, type: 'page.state', id: 'e2e-state', payload: {} });
+              if (state?.ok) return { tabId: tab.id, mode: state.payload?.page?.mode, host: state.payload?.hostname, active: state.payload?.page?.active, reloaded: false };
+            } catch { /* 该标签页没有内容脚本，继续 */ }
+          }
+          return null;
+        };
+        const first = await probe();
+        if (first) return first;
+        // 没有 tabs 权限时 tab.url 为 undefined，所以不能按 URL 过滤；
+        // 用 chrome.tabs.getCurrent 找到脚本自己所在的标签页，其余全部 reload。
+        const self = await chrome.tabs.getCurrent().catch(() => null);
         const tabs = await chrome.tabs.query({});
-        for (const tab of tabs) {
-          if (!tab.id || String(tab.url || '').startsWith('chrome-extension://')) continue;
+        const others = tabs.filter((tab) => tab.id && tab.id !== self?.id);
+        let reloaded = 0;
+        for (const tab of others) {
           try {
-            const state = await chrome.tabs.sendMessage(tab.id, { v: 1, type: 'page.state', id: 'e2e-state', payload: {} });
-            if (state?.ok) return { tabId: tab.id, mode: state.payload?.page?.mode, host: state.payload?.hostname, active: state.payload?.page?.active };
-          } catch { /* 该标签页没有内容脚本，继续 */ }
+            await chrome.tabs.reload(tab.id);
+            reloaded += 1;
+          } catch { /* 忽略无法重载的标签页 */ }
         }
-        return { error: '没有任何标签页响应 page.state' };
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        const second = await probe();
+        if (second) return { ...second, reloaded: true, reloadCount: reloaded };
+        return { error: '没有任何标签页响应 page.state（已 reload 重试）', reloadCount: reloaded, tabCount: tabs.length };
       })()`,
     );
     report.contentScript = contentProbe;
@@ -451,7 +479,9 @@ async function main() {
     report.steps.push({
       name: '内容脚本通道',
       ok: contentOk,
-      detail: contentOk ? `tab ${contentProbe.tabId} · 主机 ${contentProbe.host} · 模式 ${contentProbe.mode}` : contentProbe.error,
+      detail: contentOk
+        ? `tab ${contentProbe.tabId} · 主机 ${contentProbe.host} · 模式 ${contentProbe.mode}${contentProbe.reloaded ? ' · 重载后注入' : ''}`
+        : contentProbe.error,
     });
 
     // 5. 可选：真实翻译（需要网络；网络失败如实记录，不伪造成功）

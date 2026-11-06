@@ -175,7 +175,9 @@ export async function fetchCues(baseUrl, { signal, timeoutMs = 15000 } = {}) {
   }
   const body = await response.text();
   const cues = parseTimedTextBody(body);
-  if (!cues.length) return { ok: false, reason: 'EMPTY' };
+  if (!cues.length) {
+    return { ok: false, reason: 'EMPTY', note: '响应体为空（HTTP 200 但无内容）：站点可能要求 PoToken，或轨道签名已过期' };
+  }
   return { ok: true, cues };
 }
 

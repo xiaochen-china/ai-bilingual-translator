@@ -3,7 +3,7 @@
 一个面向 **Microsoft Edge / Google Chrome** 的 MV3 浏览器扩展：把英文网页、英文字幕、选中的英文单词/句子翻译成中文，并在原文下方以双语对照的方式展示。
 
 - 清单版本：Manifest V3
-- 当前版本：**2.1.0**
+- 当前版本：**2.1.1**
 - 支持浏览器：Edge / Chrome 116 及以上（Windows 10、Windows 11 实测环境为 Edge 156 / Chrome 156）
 - 安装方式：开发者模式 → 加载解压缩的扩展（**无需构建、无需命令行**）
 
@@ -96,8 +96,11 @@ ai-bilingual-translator/
 ├─ tools/
 │  ├─ validate.js                # 静态自检（清单、语法、权限、禁用写法）
 │  ├─ build_zip.py               # 打包成可分发 ZIP
-│  └─ generate_icons.py          # 生成图标
-└─ docs/                         # 安装、配置、API、测试报告、已知问题
+│  ├─ generate_icons.py          # 生成图标
+│  ├─ e2e-smoke.mjs              # 端到端：加载扩展 + 夹具页 12 步断言
+│  ├─ e2e-pages.mjs              # 真实站点抽样（维基百科 / GitHub / Stack Overflow）
+│  └─ verify-live.mjs            # 真实 YouTube 字幕 / Chrome 能否命令行加载
+└─ docs/                         # 安装、配置、API、测试报告、已知问题、版本演进
 ```
 
 ---
@@ -139,6 +142,15 @@ node tools/e2e-smoke.mjs
 # 端到端 + 真实 Google 翻译请求（会访问外网）
 node tools/e2e-smoke.mjs --google
 
+# 换浏览器跑同一套端到端（品牌版 Chrome 已禁用命令行加载，建议用 Chrome for Testing）
+ABT_BROWSER="C:/path/to/chrome-for-testing/chrome-win64/chrome.exe" node tools/e2e-smoke.mjs --google
+
+# 真实站点抽样：维基百科长文 / GitHub 仓库页 / Stack Overflow
+node tools/e2e-pages.mjs
+
+# 真实 YouTube 视频的字幕链路（需要网络；--headed 让播放器真的渲染原生字幕）
+node tools/verify-live.mjs --youtube 8S0FDjFBj8o --headed
+
 # 生成图标（需要 Python + Pillow，图标已随仓库提供）
 python tools/generate_icons.py
 
@@ -146,7 +158,7 @@ python tools/generate_icons.py
 python tools/build_zip.py
 ```
 
-实测结果见 [docs/测试报告.md](docs/测试报告.md)：单元测试 40/40 通过，静态自检通过，端到端 12 个步骤全部通过（含真实 Google 翻译）。
+实测结果见 [docs/测试报告.md](docs/测试报告.md)：单元测试 40/40 通过，静态自检通过，端到端 12 个步骤全部通过（含真实 Google 翻译，Edge 与 Chrome for Testing 157 各跑一遍），真实站点抽样 4/4 通过，YouTube 字幕在接口被 PoToken 限制时如实降级并译出双语字幕。各阶段需求落在哪些文件见 [docs/版本演进.md](docs/版本演进.md)。
 
 扩展本身**不需要**打包构建：修改源码后在扩展管理页点「重新加载」即可生效。
 
@@ -161,3 +173,18 @@ python tools/build_zip.py
 - 自动语音识别（ASR）字幕不做的原因是成本与稳定性；扩展只读取平台已有的字幕轨道。
 - 纯 Canvas / 图片里的文字、PDF 内置阅读器中的文字不在翻译范围内。
 - 后台标签页里触发翻译时，懒加载会让段落先显示「翻译中…」，切回该标签页后继续完成（浏览器不给不可见页面派发可见性回调）。
+
+---
+
+## 7. 更新记录
+
+### 2.1.1
+
+- 修复：字幕在「句子没有变化」时不会刷新译文（DOM 回退里的一次性定时器 + 逐帧同步只在新句子到来时渲染），暂停时也不会补上译文。
+- 改进：整页翻译改为**正文优先**——正文区（`main` / `article` / `.mw-parser-output` / `.s-prose` / `.markdown-body` 等）先翻，页面存在正文时不再翻译页头/页脚/侧栏的界面文字（「登录」「导航菜单」这类噪音）。
+- 改进：字幕接口返回空内容时，提示文案明确说明「YouTube 现要求请求携带 PoToken」，并自动降级到站点原生字幕。
+- 新增测试：`tools/e2e-pages.mjs`（真实站点抽样）、`tools/verify-live.mjs`（真实 YouTube 字幕 / Chrome 命令行加载探测）；新增 `docs/版本演进.md`。
+
+### 2.1.0
+
+- 首个公开版本：MV3 双语翻译扩展，含 4 种显示模式、4 个翻译引擎、术语表、划词查询、生词本、视频双语字幕、侧边栏与完整文档。

@@ -245,6 +245,44 @@
     return true;
   }
 
+  /* 正文优先：正文区排最前，页头/侧栏/页脚等界面区域排最后。
+     块数有上限（默认 800）时，先翻正文才不会把预算耗在「登录 / 搜索」这类
+     界面文字上。 */
+  const MAIN_REGION_SELECTOR = [
+    'main',
+    'article',
+    '[role="main"]',
+    '.mw-parser-output',
+    '.s-prose',
+    '.markdown-body',
+    '.post-text',
+    '.article-body',
+    '.entry-content',
+    '#readme',
+    '#content',
+  ].join(', ');
+  const CHROME_REGION_SELECTOR = [
+    'header',
+    'footer',
+    'aside',
+    'nav',
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="contentinfo"]',
+    '[role="complementary"]',
+    '[role="search"]',
+  ].join(', ');
+
+  function regionPriority(el) {
+    try {
+      if (el.closest(MAIN_REGION_SELECTOR)) return 0;
+      if (el.closest(CHROME_REGION_SELECTOR)) return 2;
+    } catch {
+      return 1;
+    }
+    return 1;
+  }
+
   /* ------------------------------------------------------------------ */
   /* 记录与渲染                                                          */
   /* ------------------------------------------------------------------ */
@@ -453,8 +491,16 @@
     if (budget <= 0) return;
     const candidates = [];
     walk(root, candidates);
+    // 按「正文 → 其它 → 界面区域」稳定排序，保证预算优先花在正文上
+    const scored = candidates
+      .map((candidate, index) => ({ candidate, index, priority: regionPriority(candidate.el) }))
+      .sort((a, b) => a.priority - b.priority || a.index - b.index);
+    // 页面里确实有正文时，直接不翻页头/页脚/侧栏那类界面文字（多数情况下它们只是
+    // 「登录 / 搜索 / 导航菜单」这类噪音，翻了反而干扰阅读）。
+    const hasMainRegion = scored.some((item) => item.priority === 0);
+    const ordered = scored.filter((item) => !(hasMainRegion && item.priority === 2)).map((item) => item.candidate);
     const chosen = [];
-    for (const candidate of candidates) {
+    for (const candidate of ordered) {
       if (chosen.length >= budget) break;
       if (state.blocks.has(candidate.el)) continue;
       if (!isTranslatableText(candidate.text)) {
